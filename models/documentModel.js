@@ -6,7 +6,7 @@ const documentSchema = new mongoose.Schema({
   description: String,
   img: String,
   baiduLink: String
-});
+}, { timestamps: true });
 
 const Document = mongoose.model('Document', documentSchema);
 
