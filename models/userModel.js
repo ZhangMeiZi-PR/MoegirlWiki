@@ -28,7 +28,7 @@ const userSchema = new mongoose.Schema({
   },
   roles: {
     type: Object,
-    default: { "Editor": 2007 }
+    default: { Editor: 2007 }
   }
 
   
