@@ -1,9 +1,8 @@
-const User = require('../models/userModel.js');
+const { getContainer } = require('../config/db');
 
 const handleRegister = async (req, res) => {
   const imagePath = `/images/${req.file.filename}`;
   const { username, email, password } = req.body;
-
 
   try {
     if (!username || !email || !password || !imagePath) {
@@ -14,15 +13,15 @@ const handleRegister = async (req, res) => {
     if (userExists) {
       return res.status(400).json({ message: 'User already exists' });
     }
-
     const newUser = await User.create({
       ...req.body,
-      avatar: imagePath
+      avatar: imagePath,
     });
     const savedUser = await newUser.save();
     res.status(201).json({ message: 'User registered successfully', user: newUser })
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error(err);
+    res.status(500).json({ error: err.message});
   }
 };
 

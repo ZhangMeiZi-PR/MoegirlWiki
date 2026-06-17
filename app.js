@@ -1,6 +1,6 @@
 require('dotenv').config();
 const express = require('express');
-const mongoose = require('mongoose');
+const { connectDB } = require('./config/db.js')
 const cors = require('cors');
 const morgan = require('morgan');
 const path = require('path');
@@ -22,15 +22,15 @@ app.use(morgan('dev'));
 
 //cookie parser
 app.use(cookieParser());
-//connect to MongoDB
-const dbURL = process.env.MONGO_URL;
-
-mongoose.connect(dbURL)
-.then(() => {
-  app.listen(process.env.PORT)
-})
-.catch( err => console.log(err));
-
+//connect to CosmosDB
+async function startApp() {
+  await connectDB();
+  const PORT = process.env.PORT;
+  app.listen(PORT, () => {
+    console.log(`Listen PORT ${PORT}`);
+  })
+}
+startApp();
 
 // API ROUTE
 
