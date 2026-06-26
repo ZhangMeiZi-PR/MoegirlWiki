@@ -1,6 +1,6 @@
-const mongoose = require('mongoose');
 
-const documentSchema = new mongoose.Schema({
+
+const documentSchema = ({
   name: String,
   date: String,
   description: String,
@@ -8,6 +8,3 @@ const documentSchema = new mongoose.Schema({
   baiduLink: String
 }, { timestamps: true });
 
-const Document = mongoose.model('Document', documentSchema);
-
-module.exports = Document;

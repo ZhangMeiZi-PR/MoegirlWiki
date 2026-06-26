@@ -1,20 +1,58 @@
 const { getContainer } = require('../config/db');
+const { containerClient } = require('../config/upload');
+const { v4: uuidv4 } = require('uuid');
 
+// GET
 const handleBlogAll = async (req, res) => {
   const container = getContainer();
-  const querySpec = {
-    query: "SELECT * FROM c WHERE c.type = 'blog' ORDER BY c.createdAt DESC"
+  const limit = parseInt(req.query.limit) || 10;
+  const offset = parseInt(req.query.offset) || 0;
+  const needCount = req.query.needCount === 'true';
+
+  const pinnedQuerySpec = {
+    query: "SELECT * FROM c WHERE c.type = 'blog' AND c.isPinned = true ORDER BY c.createdAt DESC"
   };
+  const dailyQuerySpec = {
+    query: "SELECT * FROM c WHERE c.type = 'blog' AND c.isPinned != true ORDER BY c.createdAt DESC OFFSET @offset LIMIT @limit",
+    parameters: [
+      { name: "@offset", value: offset },
+      { name: "@limit", value: limit }
+    ]
+  };
+
   try {
-    const { resources: blogs } = await container.items.query(querySpec).fetchAll();
-    res.json(blogs);
+    
+    const promises = [
+      container.items.query(pinnedQuerySpec).fetchAll(),
+      container.items.query(dailyQuerySpec).fetchAll(),
+    ];
+    if (needCount) {
+      const countQuerySpec = {
+        query: "SELECT VALUE COUNT(1) FROM c WHERE c.type = 'blog' AND c.isPinned != true"
+      };
+      promises.push(container.items.query(countQuerySpec).fetchAll());
+    }
+
+    const results = await Promise.all(promises);
+
+    
+    const responseData = {
+      isPinned: results[0].resources,
+      daily: results[1].resources,
+    };
+
+    if (needCount && results[2]) {
+      responseData.totalCount = results[2].resources[0];
+    }
+    return res.status(200).json(responseData);
+
   } catch (err) {
     console.error(err.message);
-    res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message });
   }
 };
 
-const handleBlogRecent = (req, res) => {
+const handleBlogRecent = async (req, res) => {
   const container = getContainer();
   const querySpec = {
     query: "SELECT TOP 5 * FROM c WHERE c.type = 'blog' ORDER BY c.createdAt DESC "
@@ -22,71 +60,124 @@ const handleBlogRecent = (req, res) => {
 
   try {
     const { resources: blogs } = await container.items.query(querySpec).fetchAll();
-    res.json(blogs);
-  } catch {
+    return res.json(blogs);
+  } catch (err) {
     console.error(err.message);
-    res.status(500).json({ error: err.message })
+    return res.status(500).json({ error: err.message })
   }
 };
 
-const handleBlogId = (req, res) => {
-  const id = req.params.id;
+const handleBlogId = async (req, res) => {
+  const { id } = req.params;
   const container = getContainer();
+  const querySpec = {
+    query: "SELECT * FROM c WHERE c.type = 'blog' AND c.id = @id ORDER BY c.createdAt DESC ",
+    parameters: [{ name: "@id", value: id }]
+  };
   try {
-    const { resource: blog } = await container.item(id, id).read();
+    const { resources: blogs } = await container.items.query(querySpec).fetchAll();
+    const blog = blogs[0];
     if (!blog || blog.type !== 'blog') {
       return res.status(404).json({ error: 'Blog not found' })
     }
-    res.json(blog);
+    return res.json(blog);
   } catch (err) {
     console.error(err.message);
-    res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message });
   }
 };
 
-const handleBlogPost = (req, res) => {
+const handleBlogUserId = async (req, res) => {
+  const { userId } = req.params;
   const container = getContainer();
-
+  const querySpec = {
+    query: "SELECT * FROM c WHERE c.type = 'blog' AND c.userId = @userId ORDER BY c.createdAt DESC",
+    parameters: [{ name: "@userId", value: userId }]
+  };
   try {
-    const blogId = `blog_${Date.now()}`;
+    const { resources: blogs } = await container.items.query(querySpec).fetchAll();
+    return res.status(200).json(blogs);
+  } catch (err) {
+    console.error(err.message);
+    return res.status(500).json({ error: err.message });
+  }
+};
 
+// POST
+const handleBlogImageUpload = async (req, res) => {
+  const FileName = `blogImage--${Date.now()}--${req.file.originalname}`;
+  const blockBlobClient = containerClient.getBlockBlobClient(FileName);
+  await blockBlobClient.uploadData(req.file.buffer, {
+    tags: { status: 'temporary' }
+  });
+
+  return res.json({ url: blockBlobClient.url })
+}
+
+const handleBlogPost = async (req, res) => {
+  const container = getContainer();
+  const { content, title, description, details } = req.body;
+  if (!content || !title) {
+    return res.status(400).json({ error: 'Title and content fields are required' });
+  }
+  try {
+    const azureUrlRegex = /https:\/\/testfiledb\.blob\.core\.windows\.net\/image\/[^\s"'>]+/g;
+    const foundUrls = content.match(azureUrlRegex) || [];
+    // loop each image url
+    for (const url of foundUrls) {
+      try {
+        const fileName = decodeURIComponent(url.substring(url.lastIndexOf('/') + 1));
+        const blockBlobClient = containerClient.getBlobClient(fileName);
+        await blockBlobClient.setTags({});
+      } catch (err) {
+        console.warn(err.message);
+        return res.status(500).json({ error: err.message })
+      }
+    }
+    // new blog
     const newBlog = {
-      id: blogId,
-      blogId,
+      id: uuidv4(),
       type: 'blog',
-      title: req.body.title,
-      content: req.body.content,
-      description: req.body.description,
-      authorId: req.userId || req.body.userId,
+      author: details?.author || null,
+      userId: details?.userId,
+      title,
+      avatar: details?.avatar,
+      description,
+      content,
+      images: foundUrls,
+      isPinned: req.body.isPinned || false,
       createdAt: new Date().toISOString(),
     };
     const { resource: createdItem } = await container.items.create(newBlog);
-    res.status(201).json(createdItem);
+    return res.status(201).json(createdItem);
   } catch (err) {
     console.error(err.message);
-    res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message });
   }
 };
 
+// DELETE
 const handleBlogDelete = async (req, res) => {
   const container = getContainer();
-  const id = req.params.id;
+  const { id, userId } = req.params;
+
 
   try {
-    await container.item(id, id).delete();
-    res.json({ message: "Blog deleted" })
+    await container.item(id, userId).delete();
+    return res.json({ message: "Blog deleted" })
   } catch (err) {
     console.error(err.message);
-    res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message });
   }
 };
 
+// PATCH/PUT
 const handleBlogUpdate = async (req, res) => {
   const container = getContainer();
-  const id = req.params.id;
+  const { id, userId } = req.params;
 
   try {
-    const { resource: existingBlog } = await container.item(id, id).read();
+    const { resource: existingBlog } = await container.item(id, userId).read();
     if (!existingBlog || existingBlog.type !== 'blog') {
       return res.status(404).json({ error: "Blog not found" });
     }
@@ -99,14 +190,14 @@ const handleBlogUpdate = async (req, res) => {
       updatedAt: new Date().toISOString()
     }
 
-    const { resource: savedItem } = await container.item(id, id).replace(updatedBlog);
-    res.json(savedItem);
+    const { resource: savedItem } = await container.item(id, userId).replace(updatedBlog);
+    return res.json(savedItem);
   } catch (err) {
     console.error(err.message);
-    res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message });
   }
 }
 
 
 
-module.exports = { handleBlogAll, handleBlogRecent, handleBlogId, handleBlogPost, handleBlogDelete, handleBlogUpdate };
+module.exports = { handleBlogAll, handleBlogRecent, handleBlogId, handleBlogUserId, handleBlogPost, handleBlogDelete, handleBlogUpdate, handleBlogImageUpload };

@@ -5,9 +5,10 @@ const cors = require('cors');
 const morgan = require('morgan');
 const path = require('path');
 const verifyJWT = require('./middleware/verifyJWT.js');
-const cookieParser = require('cookie-parser') ;
+const cookieParser = require('cookie-parser');
 const credentials = require('./middleware/credentials.js');
 const corsOptions = require('./config/corsOptions.js');
+const uploadEngine = require('./middleware/multer.js');
 
 const app = express();
 
@@ -15,8 +16,8 @@ const app = express();
 
 // Frontend connect
 app.use(credentials);
-app.use(cors(corsOptions)); 
-app.use(express.json()); 
+app.use(cors(corsOptions));
+app.use(express.json());
 app.use('/images', express.static(path.join(__dirname, 'images')));
 app.use(morgan('dev'));
 

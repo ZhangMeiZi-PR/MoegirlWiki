@@ -1,14 +1,21 @@
-const User = require('../models/userModel');
+const { getContainer } = require('../config/db');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
 const handleLogin = async (req, res) => {
+  const container = getContainer();
   const { email, password } = req.body;
-
+  const emailLowerCase = email.toLowerCase();
+  const querySpec = {
+    query: "SELECT * FROM c WHERE c.type = 'user' AND c.email = @email",
+    parameters: [{ name: "@email", value: emailLowerCase }]
+  }
   try {
-    const user = await User.findOne({ email });
+    const { resources: users } = await container.items.query(querySpec).fetchAll();
+    const user = users[0];
+    console.log(user);
     if (!user) {
-      return res.status(400).json({ error: 'Invalid Email or Password!' });
+      return res.status(400).json({ error: 'InvalidAll Email or Password!' });
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
@@ -27,9 +34,17 @@ const handleLogin = async (req, res) => {
       { expiresIn: '30d' }
     );
 
-    // save refreshToken to mongoDB
+    // save refreshToken to DB
     user.refreshToken = refreshToken;
-    await user.save();
+    await container.item(user.id, user.userId).patch({
+      operations: [
+        {
+          op: "set",
+          path: "/refreshToken",
+          value: refreshToken
+        }
+      ]
+    });
 
     // send cookie and JSON token
     const roles = Object.values(user.roles);
@@ -42,7 +57,7 @@ const handleLogin = async (req, res) => {
     res.status(200).json({
       accessToken,
       user: {
-        id: user._id,
+        id: user.id,
         username: user.username,
         email: user.email,
         avatar: user.avatar
@@ -56,4 +71,4 @@ const handleLogin = async (req, res) => {
   }
 };
 
-module.exports = {handleLogin};
+module.exports = { handleLogin };

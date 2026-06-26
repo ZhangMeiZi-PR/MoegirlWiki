@@ -1,17 +1,21 @@
 const jwt = require('jsonwebtoken');
-const User = require('../models/userModel.js');
-
+const { getContainer } = require('../config/db.js')
 
 const handleRefreshToken = async (req, res) => {
   const cookies = req.cookies;
+  const container = getContainer();
   try {
     if (!cookies?.jwt) {
       return res.sendStatus(401);
     }
     console.log(cookies.jwt);
     const refreshToken = cookies.jwt;
-
-    const foundUser = await User.findOne({ refreshToken });
+    const querySpec = {
+      query: "SELECT * FROM c WHERE c.type = 'user' AND c.refreshToken = @refreshToken",
+      parameters: [{ name: "@refreshToken", value: refreshToken }]
+    }
+    const { resources: users } = await container.items.query(querySpec).fetchAll();
+    const foundUser = users[0];
     if (!foundUser) return res.sendStatus(403); // Forbidden
     // evaluate JWT
     jwt.verify(
@@ -22,7 +26,7 @@ const handleRefreshToken = async (req, res) => {
         // generate access JWT
         const roles = Object.values(foundUser.roles);
         const user = {
-          id: foundUser._id,
+          id: foundUser.id,
           username: foundUser.username,
           email: foundUser.email,
           avatar: foundUser.avatar
@@ -30,7 +34,7 @@ const handleRefreshToken = async (req, res) => {
         const accessToken = jwt.sign(
           {
             "username": decoded.username,
-            "roles": roles
+            "roles": roles,
           },
           process.env.ACCESS_TOKEN_SECRET,
           { expiresIn: '15m' }

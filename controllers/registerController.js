@@ -1,24 +1,49 @@
 const { getContainer } = require('../config/db');
+const { containerClient } = require('../config/upload');
+const { v4: uuidv4 } = require('uuid');
+const bcrypt = require('bcryptjs');
 
 const handleRegister = async (req, res) => {
-  const imagePath = `/images/${req.file.filename}`;
+  const container = getContainer();
   const { username, email, password } = req.body;
 
-  try {
-    if (!username || !email || !password || !imagePath) {
+  if (!username || !email || !password || !req.file) {
       return res.status(400).json({ message: 'All fields are required' });
-    }
+  }
+  const emailLowerCase = email.toLowerCase();
+  try {  
+      const querySpec = {
+        query: "SELECT * FROM c WHERE c.type = 'user' AND c.email = @email",
+        parameters: [{ name: "@email", value: emailLowerCase }]
+      };
+      const { resources: existingUsers } = await container.items.query(querySpec).fetchAll();
 
-    const userExists = await User.findOne({ email });
-    if (userExists) {
-      return res.status(400).json({ message: 'User already exists' });
-    }
-    const newUser = await User.create({
-      ...req.body,
-      avatar: imagePath,
-    });
-    const savedUser = await newUser.save();
-    res.status(201).json({ message: 'User registered successfully', user: newUser })
+      if (existingUsers.length > 0) {
+        return res.status(400).json('User already exists');
+      }
+
+      // upload avatar
+      const FileName = `avatarImage--${Date.now()}--${req.file.originalname}`
+      const blockBlobClient = containerClient.getBlockBlobClient(FileName);
+      await blockBlobClient.uploadData(req.file.buffer);
+
+      // create User
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+      const newUser = {
+        id: uuidv4(),
+        userId: uuidv4(),
+        type: 'user',
+        username,
+        email: emailLowerCase,
+        password: hashedPassword,
+        avatar: blockBlobClient.url,
+        roles: { Editor: 2006 },
+        createdAt: new Date().toISOString()
+      };
+      const { resources: savedUser } = await container.items.create(newUser);
+      
+      res.status(201).json('User registered successfully');
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message});
