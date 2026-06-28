@@ -12,7 +12,8 @@ router.get('/profile/:userId', blogController.handleBlogUserId);
 
 //verifyJWT POST
 router.post('/create', blogController.handleBlogPost);
-router.post('/upload', uploadEngine.single('image'), blogController.handleBlogImageUpload);
+router.post('/update/upload', uploadEngine.single('image'), blogController.handleBlogImageUpload);
+router.post('/update/comment', blogController.handleBlogCommentsUpdate);
 //verifyJWT DELETE
 router.delete('/delete/:userId/:id', blogController.handleBlogDelete);
 

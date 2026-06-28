@@ -21,7 +21,7 @@ const handleBlogAll = async (req, res) => {
   };
 
   try {
-    
+
     const promises = [
       container.items.query(pinnedQuerySpec).fetchAll(),
       container.items.query(dailyQuerySpec).fetchAll(),
@@ -35,7 +35,7 @@ const handleBlogAll = async (req, res) => {
 
     const results = await Promise.all(promises);
 
-    
+
     const responseData = {
       isPinned: results[0].resources,
       daily: results[1].resources,
@@ -112,7 +112,7 @@ const handleBlogImageUpload = async (req, res) => {
   });
 
   return res.json({ url: blockBlobClient.url })
-}
+};
 
 const handleBlogPost = async (req, res) => {
   const container = getContainer();
@@ -147,6 +147,7 @@ const handleBlogPost = async (req, res) => {
       images: foundUrls,
       isPinned: req.body.isPinned || false,
       createdAt: new Date().toISOString(),
+      comments: []
     };
     const { resource: createdItem } = await container.items.create(newBlog);
     return res.status(201).json(createdItem);
@@ -161,7 +162,6 @@ const handleBlogDelete = async (req, res) => {
   const container = getContainer();
   const { id, userId } = req.params;
 
-
   try {
     await container.item(id, userId).delete();
     return res.json({ message: "Blog deleted" })
@@ -172,6 +172,43 @@ const handleBlogDelete = async (req, res) => {
 };
 
 // PATCH/PUT
+const handleBlogCommentsUpdate = async (req, res) => {
+  const container = getContainer();
+  const id = req.query.id;
+  const userId = req.query.userId;
+  const { body, author, avatar } = req.body;
+  if (!body) {
+    return res.status(400).json({ message: "Commnet body is required" });
+  }
+
+  const newComment = {
+    id: uuidv4(),
+    body,
+    author,
+    avatar,
+    createdAt: new Date().toISOString()
+  };
+
+  try {
+    const patchOperations = [
+      {
+        op: "add",
+        path: "/comments/-",
+        value: newComment
+      }
+    ]
+
+    const { resource: updatedBlog } = await container.item(id, userId).patch(patchOperations);
+    return res.status(200).json(updatedBlog);
+  } catch (err) {
+    console.error(err.message);
+    if (err.code === 404) {
+      return res.status(404).json({ message: "Blog not found" });
+    }
+    return res.status(500).json({ error: err.message });
+  }
+}
+
 const handleBlogUpdate = async (req, res) => {
   const container = getContainer();
   const { id, userId } = req.params;
@@ -200,4 +237,4 @@ const handleBlogUpdate = async (req, res) => {
 
 
 
-module.exports = { handleBlogAll, handleBlogRecent, handleBlogId, handleBlogUserId, handleBlogPost, handleBlogDelete, handleBlogUpdate, handleBlogImageUpload };
+module.exports = { handleBlogAll, handleBlogRecent, handleBlogId, handleBlogUserId, handleBlogPost, handleBlogDelete, handleBlogUpdate, handleBlogImageUpload, handleBlogCommentsUpdate };
