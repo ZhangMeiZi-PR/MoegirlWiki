@@ -1,6 +1,7 @@
 const { getContainer } = require('../config/db');
 const { containerClient } = require('../config/upload');
 const { v4: uuidv4 } = require('uuid');
+const crypto = require('crypto');
 
 // GET
 const handleBlogAll = async (req, res) => {
@@ -105,7 +106,7 @@ const handleBlogUserId = async (req, res) => {
 
 // POST
 const handleBlogImageUpload = async (req, res) => {
-  const FileName = `blogImage--${Date.now()}--${req.file.originalname}`;
+  const FileName = `blogImage--${Date.now()}--${crypto.randomUUID}`;
   const blockBlobClient = containerClient.getBlockBlobClient(FileName);
   await blockBlobClient.uploadData(req.file.buffer, {
     tags: { status: 'temporary' }

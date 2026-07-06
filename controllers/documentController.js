@@ -1,6 +1,7 @@
 const { getContainer } = require('../config/db');
 const { containerClient } = require('../config/upload');
 const { v4: uuidv4 } = require('uuid');
+const crypto = require('crypto');
 
 const handleDocAll = async (req, res) => {
   const container = getContainer();
@@ -38,7 +39,7 @@ const handleDocId = async (req, res) => {
 
 const handleDocPost = async (req, res) => {
   const container = getContainer();
-  const FileName = `blogImage--${Date.now()}--${req.file.originalname}`;
+  const FileName = `blogImage--${Date.now()}--${crypto.randomUUID}`;
   const blockBlobClient = containerClient.getBlockBlobClient(FileName);
   const { name, date, description, baiduLink, userId, author } = req.body;
   try {
@@ -81,7 +82,7 @@ const handleDocDelete = async (req, res) => {
 const handleDocUpdate = async (req, res) => {
   const container = getContainer();
   const { id, userId } = req.params;
-  const FileName = `documentImage--${Date.now()}--${req.file.originalname}`;
+  const FileName = `documentImage--${Date.now()}--${crypto.randomUUID}`;
   const blockBlobClient = containerClient.getBlockBlobClient(FileName);
   const { name, author, date, baiduLink } = req.body;
   try {

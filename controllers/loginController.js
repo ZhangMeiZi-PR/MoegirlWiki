@@ -13,7 +13,6 @@ const handleLogin = async (req, res) => {
   try {
     const { resources: users } = await container.items.query(querySpec).fetchAll();
     const user = users[0];
-    console.log(user);
     if (!user) {
       return res.status(400).json({ error: 'InvalidAll Email or Password!' });
     }

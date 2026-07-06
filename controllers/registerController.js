@@ -1,6 +1,7 @@
 const { getContainer } = require('../config/db');
 const { containerClient } = require('../config/upload');
 const { v4: uuidv4 } = require('uuid');
+const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 
 const handleRegister = async (req, res) => {
@@ -23,7 +24,7 @@ const handleRegister = async (req, res) => {
       }
 
       // upload avatar
-      const FileName = `avatarImage--${Date.now()}--${req.file.originalname}`
+      const FileName = `avatarImage--${Date.now()}--${crypto.randomUUID}`
       const blockBlobClient = containerClient.getBlockBlobClient(FileName);
       await blockBlobClient.uploadData(req.file.buffer);
 
