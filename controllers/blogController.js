@@ -114,7 +114,7 @@ const handleBlogImageUpload = async (req, res) => {
 
   return res.json({ url: blockBlobClient.url })
 };
-
+// !! Remeber to change the storageDB path(if storageDB changed )!!!!!!
 const handleBlogPost = async (req, res) => {
   const container = getContainer();
   const { content, title, description, details } = req.body;
@@ -122,10 +122,9 @@ const handleBlogPost = async (req, res) => {
     return res.status(400).json({ error: 'Title and content fields are required' });
   }
   try {
-    const azureUrlRegex = /https:\/\/testfiledb\.blob\.core\.windows\.net\/image\/[^\s"'>]+/g;
+    const azureUrlRegex = /https:\/\/filedataprod\.blob\.core\.windows\.net\/image\/[^\s"'>]+/g;
     const foundUrls = content.match(azureUrlRegex) || [];
     // loop each image url
-    const updateResults = [];
 
     for (const url of foundUrls) {
       try {
@@ -133,8 +132,7 @@ const handleBlogPost = async (req, res) => {
         const blockBlobClient = containerClient.getBlockBlobClient(fileName);
         await blockBlobClient.setTags({});
 
-        updateResults.push({ url, status: 'success'});
-        console.log(updateResults);
+
       } catch (err) {
         console.warn(err.message);
         return res.status(500).json({ error: err.message })
