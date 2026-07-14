@@ -125,11 +125,15 @@ const handleBlogPost = async (req, res) => {
     const azureUrlRegex = /https:\/\/testfiledb\.blob\.core\.windows\.net\/image\/[^\s"'>]+/g;
     const foundUrls = content.match(azureUrlRegex) || [];
     // loop each image url
+    const updateResults = [];
+
     for (const url of foundUrls) {
       try {
         const fileName = decodeURIComponent(url.substring(url.lastIndexOf('/') + 1));
         const blockBlobClient = containerClient.getBlockBlobClient(fileName);
         await blockBlobClient.setTags({});
+
+        updateResults.push({ url, status: 'success'})
       } catch (err) {
         console.warn(err.message);
         return res.status(500).json({ error: err.message })
