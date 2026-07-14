@@ -24,7 +24,7 @@ const handleRegister = async (req, res) => {
       }
 
       // upload avatar
-      const FileName = `avatarImage--${Date.now()}--${crypto.randomUUID}`
+      const FileName = `avatarImage--${Date.now()}--${crypto.randomUUID()}`
       const blockBlobClient = containerClient.getBlockBlobClient(FileName);
       await blockBlobClient.uploadData(req.file.buffer);
 

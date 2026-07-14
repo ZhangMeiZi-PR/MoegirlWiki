@@ -106,7 +106,7 @@ const handleBlogUserId = async (req, res) => {
 
 // POST
 const handleBlogImageUpload = async (req, res) => {
-  const FileName = `blogImage--${Date.now()}--${crypto.randomUUID}`;
+  const FileName = `blogImage--${Date.now()}--${crypto.randomUUID()}`;
   const blockBlobClient = containerClient.getBlockBlobClient(FileName);
   await blockBlobClient.uploadData(req.file.buffer, {
     tags: { status: 'temporary' }
@@ -128,7 +128,7 @@ const handleBlogPost = async (req, res) => {
     for (const url of foundUrls) {
       try {
         const fileName = decodeURIComponent(url.substring(url.lastIndexOf('/') + 1));
-        const blockBlobClient = containerClient.getBlobClient(fileName);
+        const blockBlobClient = containerClient.getBlockBlobClient(fileName);
         await blockBlobClient.setTags({});
       } catch (err) {
         console.warn(err.message);
