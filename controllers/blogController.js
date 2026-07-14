@@ -133,7 +133,8 @@ const handleBlogPost = async (req, res) => {
         const blockBlobClient = containerClient.getBlockBlobClient(fileName);
         await blockBlobClient.setTags({});
 
-        updateResults.push({ url, status: 'success'})
+        updateResults.push({ url, status: 'success'});
+        console.log(updateResults);
       } catch (err) {
         console.warn(err.message);
         return res.status(500).json({ error: err.message })
